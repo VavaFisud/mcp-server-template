@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from config import Settings
+from src.config import Settings
 
 
 class PokeNotifier:
