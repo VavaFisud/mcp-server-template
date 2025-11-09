@@ -30,15 +30,6 @@ notifier = PokeNotifier(settings)
 poller = UpdatePoller(settings, service, notifier)
 
 mcp = FastMCP("EcoleDirecte <> Poke")
-mcp.add_middleware(
-    Middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-        allow_credentials=True,
-    )
-)
 
 
 def _format_note(note: Dict[str, Any]) -> Dict[str, Any]:
@@ -216,8 +207,16 @@ if __name__ == "__main__":
     logger.info("Starting MCP server on %s:%s", host, port)
     streamable_app = mcp.streamable_http_app(path="/mcp")
 
-    uvicorn.run(
+    app = CORSMiddleware(
         streamable_app,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=True,
+    )
+
+    uvicorn.run(
+        app,
         host=host,
         port=port,
         log_level="info",

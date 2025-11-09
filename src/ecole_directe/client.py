@@ -239,7 +239,11 @@ class EcoleDirecteClient:
             temp_token = response.get("token") or self._token
             if not temp_token:
                 raise RuntimeError("Token de double authentification non disponible.")
-            qcm_info = self._request_qcm(temp_token)
+            try:
+                qcm_info = self._request_qcm(temp_token)
+            except SessionExpired:
+                # The temporary token for QCM expired, let's restart the login process.
+                return self.login(force=True)
             raise QCMRequired(
                 qcm_info["question"],
                 [choice["decoded"] for choice in qcm_info["choices"]],
