@@ -5,9 +5,9 @@ import threading
 import time
 from typing import Optional
 
-from config import Settings
+from src.config import Settings
 from src.ecole_directe.exceptions import QCMRequired, EcoleDirecteError
-from poke_notifier import PokeNotifier
+from src.poke_notifier import PokeNotifier
 from service import EcoleDirecteService, SyncDelta
 
 
