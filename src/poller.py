@@ -6,7 +6,7 @@ import time
 from typing import Optional
 
 from config import Settings
-from ecole_directe.exceptions import QCMRequired, EcoleDirecteError
+from src.ecole_directe.exceptions import QCMRequired, EcoleDirecteError
 from poke_notifier import PokeNotifier
 from service import EcoleDirecteService, SyncDelta
 
