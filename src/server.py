@@ -41,19 +41,6 @@ mcp.add_middleware(
 )
 
 
-@mcp.custom_route("/mcp", methods=["OPTIONS"])
-async def _mcp_options_handler(_: Request) -> Response:  # type: ignore[override]
-    return Response(
-        status_code=204,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        },
-    )
-
-
 def _format_note(note: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "id": note.get("id"),
@@ -228,20 +215,6 @@ if __name__ == "__main__":
     host = "0.0.0.0"
     logger.info("Starting MCP server on %s:%s", host, port)
     streamable_app = mcp.streamable_http_app(path="/mcp")
-
-    # Ensure OPTIONS handler is present even if the inspector performs a preflight outside FastMCP.
-    async def _options_passthrough(_: Request) -> Response:
-        return Response(
-            status_code=204,
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            },
-        )
-
-    streamable_app.add_route("/mcp", _options_passthrough, methods=["OPTIONS"])
 
     uvicorn.run(
         streamable_app,
