@@ -5,9 +5,11 @@ import os
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
+import uvicorn
 from fastmcp import FastMCP
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
 from starlette.responses import Response
 
 from config import Settings, load_settings
@@ -40,8 +42,16 @@ mcp.add_middleware(
 
 
 @mcp.custom_route("/mcp", methods=["OPTIONS"])
-async def _mcp_options_handler(request) -> Response:  # type: ignore[override]
-    return Response(status_code=204)
+async def _mcp_options_handler(_: Request) -> Response:  # type: ignore[override]
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        },
+    )
 
 
 def _format_note(note: Dict[str, Any]) -> Dict[str, Any]:
@@ -217,9 +227,25 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     host = "0.0.0.0"
     logger.info("Starting MCP server on %s:%s", host, port)
-    mcp.run(
-        transport="http",
+    streamable_app = mcp.streamable_http_app(path="/mcp")
+
+    # Ensure OPTIONS handler is present even if the inspector performs a preflight outside FastMCP.
+    async def _options_passthrough(_: Request) -> Response:
+        return Response(
+            status_code=204,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            },
+        )
+
+    streamable_app.add_route("/mcp", _options_passthrough, methods=["OPTIONS"])
+
+    uvicorn.run(
+        streamable_app,
         host=host,
         port=port,
-        stateless_http=True,
+        log_level="info",
     )
