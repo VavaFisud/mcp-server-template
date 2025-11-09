@@ -5,10 +5,10 @@ import threading
 import time
 from typing import Optional
 
-from src.config import Settings
-from src.ecole_directe.exceptions import QCMRequired, EcoleDirecteError
-from src.poke_notifier import PokeNotifier
-from src.service import EcoleDirecteService, SyncDelta
+from config import Settings
+from ecole_directe.exceptions import QCMRequired, EcoleDirecteError
+from poke_notifier import PokeNotifier
+from service import EcoleDirecteService, SyncDelta
 
 
 logger = logging.getLogger(__name__)
