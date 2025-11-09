@@ -8,7 +8,7 @@ from typing import Optional
 from src.config import Settings
 from src.ecole_directe.exceptions import QCMRequired, EcoleDirecteError
 from src.poke_notifier import PokeNotifier
-from service import EcoleDirecteService, SyncDelta
+from src.service import EcoleDirecteService, SyncDelta
 
 
 logger = logging.getLogger(__name__)
