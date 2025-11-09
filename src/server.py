@@ -12,7 +12,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from config import Settings, load_settings
+from src.config import Settings, load_settings
 from ecole_directe.exceptions import EcoleDirecteError, QCMRequired
 from poke_notifier import PokeNotifier
 from poller import UpdatePoller
@@ -30,6 +30,16 @@ notifier = PokeNotifier(settings)
 poller = UpdatePoller(settings, service, notifier)
 
 mcp = FastMCP("EcoleDirecte <> Poke")
+
+app = mcp.http_app(path="/mcp")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
 
 def _format_note(note: Dict[str, Any]) -> Dict[str, Any]:
@@ -211,20 +221,11 @@ def start_background_tasks() -> None:
 
 
 if __name__ == "__main__":
-    start_background_tasks()
+    if os.getenv("ED_POLL_ON_START") == "1":
+        start_background_tasks()
     port = int(os.environ.get("PORT", 8000))
     host = "0.0.0.0"
     logger.info("Starting MCP server on %s:%s", host, port)
-    app = mcp.http_app(path="/mcp")
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["*"],
-        allow_credentials=True,
-    )
-
     uvicorn.run(
         app,
         host=host,
