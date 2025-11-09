@@ -119,6 +119,7 @@ def respond_qcm(answer: str) -> Dict[str, Any]:
         service.client.login(force=True)
         delta = service.sync()
         poller.dispatch_delta(delta)
+        poller.start()  # Restart the poller
         return {"status": "ok", "fa_credentials": credentials}
     except ValueError as exc:
         return {"status": "error", "reason": str(exc)}
@@ -188,6 +189,15 @@ def list_schedule(days: int = 7, include_cancelled: bool = True) -> Dict[str, An
     }
 
 
+@mcp.tool(description="Purger l'état de la session EcoleDirecte (token, compte) pour forcer une nouvelle connexion.")
+def reset_session() -> Dict[str, Any]:
+    """Resets the session state, forcing a fresh login on the next request."""
+    poller.stop()
+    state_store.clear_session()
+    poller.start()
+    return {"status": "ok", "message": "Session purgée. Le poller a été redémarré."}
+
+
 def start_background_tasks() -> None:
     try:
         delta = service.sync()
@@ -205,12 +215,12 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     host = "0.0.0.0"
     logger.info("Starting MCP server on %s:%s", host, port)
-    streamable_app = mcp.streamable_http_app(path="/mcp")
+    app = mcp.http_app(path="/mcp")
 
-    app = CORSMiddleware(
-        streamable_app,
+    app.add_middleware(
+        CORSMiddleware,
         allow_origins=["*"],
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
         allow_credentials=True,
     )

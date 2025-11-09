@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import threading
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -37,6 +38,7 @@ class EcoleDirecteClient:
         self._token: Optional[str] = state.get_token()
         self._account: Optional[Dict[str, Any]] = state.get_account_metadata()
         self._gtk_cookie: Optional[str] = None
+        self._login_lock = threading.RLock()
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -193,67 +195,68 @@ class EcoleDirecteClient:
         return {"cn": cn, "cv": cv}
 
     def login(self, force: bool = False) -> Dict[str, Any]:
-        if self._token and self._account and not force:
-            return self._account
+        with self._login_lock:
+            if self._token and self._account and not force:
+                return self._account
 
-        gtk = self._fetch_gtk_cookie()
-        payload = {
-            "identifiant": self.settings.ecole_directe_username,
-            "motdepasse": self.settings.ecole_directe_password,
-            "isReLogin": False,
-            "uuid": "",
-        }
-        fa_credentials = self.state.get_cn_cv()
-        if fa_credentials:
-            payload["fa"] = [fa_credentials]
-        headers = {"X-Gtk": gtk}
+            gtk = self._fetch_gtk_cookie()
+            payload = {
+                "identifiant": self.settings.ecole_directe_username,
+                "motdepasse": self.settings.ecole_directe_password,
+                "isReLogin": False,
+                "uuid": "",
+            }
+            fa_credentials = self.state.get_cn_cv()
+            if fa_credentials:
+                payload["fa"] = [fa_credentials]
+            headers = {"X-Gtk": gtk}
 
-        try:
-            response = self._post(
-                "/v3/login.awp",
-                payload=payload,
-                include_token=False,
-                headers=headers,
-                extra_query={"v": self.API_VERSION},
-                method="post",
-                allowed_codes={250},
-            )
-        except ApiRequestFailed as exc:
-            if "mot de passe" in exc.message.lower():
-                raise AuthenticationFailed(exc.message)
-            raise
-        except SessionExpired:
-            # Should not happen on login; fall back to fresh attempt
-            response = self._post(
-                "/v3/login.awp",
-                payload=payload,
-                include_token=False,
-                headers=headers,
-                extra_query={"v": self.API_VERSION},
-                method="post",
-                allowed_codes={250},
-            )
-
-        code = response.get("code", 200)
-        if code == 250:
-            temp_token = response.get("token") or self._token
-            if not temp_token:
-                raise RuntimeError("Token de double authentification non disponible.")
             try:
-                qcm_info = self._request_qcm(temp_token)
+                response = self._post(
+                    "/v3/login.awp",
+                    payload=payload,
+                    include_token=False,
+                    headers=headers,
+                    extra_query={"v": self.API_VERSION},
+                    method="post",
+                    allowed_codes={250},
+                )
+            except ApiRequestFailed as exc:
+                if "mot de passe" in exc.message.lower():
+                    raise AuthenticationFailed(exc.message)
+                raise
             except SessionExpired:
-                # The temporary token for QCM expired, let's restart the login process.
-                return self.login(force=True)
-            raise QCMRequired(
-                qcm_info["question"],
-                [choice["decoded"] for choice in qcm_info["choices"]],
-                temp_token,
-            )
+                # Should not happen on login; fall back to fresh attempt
+                response = self._post(
+                    "/v3/login.awp",
+                    payload=payload,
+                    include_token=False,
+                    headers=headers,
+                    extra_query={"v": self.API_VERSION},
+                    method="post",
+                    allowed_codes={250},
+                )
 
-        account = response["data"]["accounts"][self.settings.account_index]
-        self._set_token(response["token"])
-        self._set_account(account)
-        return account
+            code = response.get("code", 200)
+            if code == 250:
+                temp_token = response.get("token") or self._token
+                if not temp_token:
+                    raise RuntimeError("Token de double authentification non disponible.")
+                try:
+                    qcm_info = self._request_qcm(temp_token)
+                except SessionExpired:
+                    # The temporary token for QCM expired, let's restart the login process.
+                    return self.login(force=True)
+                raise QCMRequired(
+                    qcm_info["question"],
+                    [choice["decoded"] for choice in qcm_info["choices"]],
+                    temp_token,
+                )
+
+            account = response["data"]["accounts"][self.settings.account_index]
+            self._set_token(response["token"])
+            self._set_account(account)
+            return account
 
     def ensure_authenticated(self) -> Dict[str, Any]:
         if not self._token or not self._account:

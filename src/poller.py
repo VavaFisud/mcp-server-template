@@ -52,8 +52,9 @@ class UpdatePoller:
                 if delta.has_updates():
                     self._dispatch(delta)
             except QCMRequired as qcm_exc:
-                logger.warning("QCM requis pour continuer: %s", qcm_exc.question)
+                logger.warning("QCM requis, arrêt du poller. Répondez via l'outil `respond_qcm` pour continuer.")
                 self._notify_qcm()
+                break  # Stop the loop
             except EcoleDirecteError as exc:
                 logger.error("Erreur EcoleDirecte: %s", exc, exc_info=True)
             except Exception as exc:  # noqa: BLE001

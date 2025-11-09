@@ -110,3 +110,11 @@ class StateStore:
     def get_account_metadata(self) -> Optional[Dict[str, Any]]:
         with self._lock:
             return self._state.get("account")
+
+    def clear_session(self) -> None:
+        with self._lock:
+            self._state.pop("token", None)
+            self._state.pop("account", None)
+            self._state.pop("fa_credentials", None)
+            self._state.pop("pending_qcm", None)
+            self._persist()
