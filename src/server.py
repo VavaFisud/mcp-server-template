@@ -13,11 +13,11 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from src.config import Settings, load_settings
-from ecole_directe.exceptions import EcoleDirecteError, QCMRequired
-from poke_notifier import PokeNotifier
-from poller import UpdatePoller
-from service import EcoleDirecteService
-from state_store import StateStore
+from src.ecole_directe.exceptions import EcoleDirecteError, QCMRequired
+from src.poke_notifier import PokeNotifier
+from src.poller import UpdatePoller
+from src.service import EcoleDirecteService
+from src.state_store import StateStore
 
 
 logging.basicConfig(level=logging.INFO)
