@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCPS in Poke - Interaction Co.</title>
+    <meta name="description" content="How to connect MCPs and use the API in Poke">
+    <link rel="icon" href="favicon.ico">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main style="max-width: 950px; margin: 0 auto;">
+        <section>
+            <h1>🌴 MCPS in Poke</h1>
+        
+            <h2>How to Add MCPs (Custom Integrations) to Poke</h2>
+            <p>Want to integrate your Model Context Protocol (MCP) server with Poke?</p>
+            <ol>
+                <li>Go to <a href="https://poke.com/settings/connections/integrations/new" target="_blank"><u>https://poke.com/settings/connections/integrations/new</u></a> to add your MCP integration</li>
+                <li>Use our verified MCP server template with 1-click deploy: <a href="https://github.com/InteractionCo/mcp-server-template" target="_blank"><u>https://github.com/InteractionCo/mcp-server-template</u></a></li>
+            </ol>
+            <p>The template repository is pre-configured and verified to work seamlessly with Poke, making it easy to get started with your custom MCP implementation!</p>
+
+            <h2>How to Send Messages to Poke</h2>
+            <p>To send messages to Poke programmatically:</p>
+            <ol>
+                <li>Create an API key at <a href="https://poke.com/settings/advanced" target="_blank"><u>https://poke.com/settings/advanced</u></a></li>
+                <li>Make a POST request to the Poke API with your API key and message</li>
+            </ol>
+
+            <h3>Examples:</h3>
+
+            <h4>Bash</h4>
+            <pre><code>API_KEY="your-api-key-here"
+MESSAGE="Hello from HackMIT!"
+
+response=$(curl 'https://poke.com/api/v1/inbound-sms/webhook' \
+        -H "Authorization: Bearer $API_KEY" \
+        -H "Content-Type: application/json" \
+        -X POST \
+        -d "{\"message\": \"$MESSAGE\"}")
+
+echo $response</code></pre>
+
+            <h4>TypeScript</h4>
+            <pre><code>const API_KEY = 'your-api-key-here';
+const MESSAGE = 'Hello from HackMIT!';
+
+const response = await fetch('https://poke.com/api/v1/inbound-sms/webhook', {
+    method: 'POST',
+    headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ message: MESSAGE })
+});
+
+const data = await response.json();
+console.log(data);</code></pre>
+
+            <h4>Python</h4>
+            <pre><code>import requests
+
+API_KEY = 'your-api-key-here'
+MESSAGE = 'Hello from HackMIT!'
+
+response = requests.post(
+    'https://poke.com/api/v1/inbound-sms/webhook',
+    headers={
+        'Authorization': f'Bearer {API_KEY}',
+        'Content-Type': 'application/json'
+    },
+    json={'message': MESSAGE}
+)
+
+print(response.json())</code></pre>
+
+            <p>If you're interested in joining our team in building products for a billion humans, apply at <a href="https://interaction.co/jobs">interaction.co/jobs</a>. Otherwise, reach out to us at <a href="mailto:hi@interaction.co">hi@interaction.co</a> or <a href="https://x.com/interaction">Twitter</a>. Can't wait to see what you build!</p>
+            <p>With love,
+            <br />
+                The Interaction Team 🌴</p>
+        </section>
+    </main>
+    <footer>
+        <div class="center-align">
+            <p><a href="index.html">Home</a></p>
+        </div>
+    </footer>
+</body>
+</html>

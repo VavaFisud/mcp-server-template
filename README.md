@@ -1,66 +1,120 @@
-# MCP Server Template
+# EcoleDirecte ↔︎ Poke MCP Server
 
-A minimal [FastMCP](https://github.com/jlowin/fastmcp) server template for Render deployment with streamable HTTP transport.
+Un serveur [FastMCP](https://github.com/jlowin/fastmcp) spécialisé qui :
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/InteractionCo/mcp-server-template)
+- se connecte à l'API EcoleDirecte (notes, absences/vie scolaire, messagerie, emploi du temps, timeline),
+- gère automatiquement le QCM de double authentification (avec outils MCP pour répondre),
+- surveille les mises à jour toutes les `POLL_INTERVAL_SECONDS` secondes et envoie des notifications vers Poke via l'API inbound SMS,
+- expose des outils MCP (`get_status`, `respond_qcm`, `list_notes`, etc.) que Poke peut invoquer à la demande.
 
-## Local Development
+La logique réseau reprend la doc communautaire [EduWireApps/ecoledirecte-api-docs](https://github.com/EduWireApps/ecoledirecte-api-docs) et le guide MCP de Poke [interaction.co/mcp](https://interaction.co/mcp).
 
-### Setup
+## 1. Prérequis
 
-Fork the repo, then run:
+- Python **3.11+** (la lib `fastmcp` ne s'installe pas sous Python 3.9)
+- Un compte EcoleDirecte élève + accès à la messagerie
+- Un token API Poke (`https://poke.com/settings/advanced`)
+- (Optionnel) un espace Render/railway/autre pour héberger le serveur MCP
+
+## 2. Installation locale
 
 ```bash
-git clone <your-repo-url>
-cd mcp-server-template
-conda create -n mcp-server python=3.13
-conda activate mcp-server
+git clone <ce-repo>
+cd poke-ecole-mcp
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Test
+## 3. Configuration
+
+1. Copier le template :
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Renseigner les variables :
+
+   | Variable | Description |
+   | --- | --- |
+   | `ECOLE_DIRECTE_USERNAME` / `ECOLE_DIRECTE_PASSWORD` | Identifiants élèves |
+   | `ECOLE_DIRECTE_USER_AGENT` | Doit rester stable pour un token donné (comme sur ED) |
+   | `POKE_API_KEY` | Token Bearer inbound-SMS |
+   | `POLL_INTERVAL_SECONDS` | Fréquence de rafraîchissement (par défaut 5 min) |
+   | `SCHEDULE_WINDOW_DAYS` | Fenêtre de récupération de l'EDT |
+   | `TIMELINE_WINDOW_DAYS` | Fenêtre d'historique pour détecter les events timeline |
+   | `ECOLE_DIRECTE_ACCOUNT_INDEX` | Index du compte enfant à suivre si plusieurs élèves |
+
+   Un état persistant (`data/state.json`) conserve le dernier token ED, les identifiants QCM `cn/cv`, et les snapshots utilisés pour détecter les nouvelles entrées.
+
+## 4. Démarrage & test
 
 ```bash
+source .venv/bin/activate
 python src/server.py
-# then in another terminal run:
-npx @modelcontextprotocol/inspector
 ```
 
-Open http://localhost:3000 and connect to `http://localhost:8000/mcp` using "Streamable HTTP" transport (NOTE THE `/mcp`!).
+Le serveur MCP écoute par défaut sur `http://localhost:8000/mcp` (transport HTTP streamable).
 
-## Deployment
+Pour le tester :
+1. `source .venv/bin/activate`
+2. `python src/server.py`
+3. Dans un autre terminal : `npx @modelcontextprotocol/inspector`
+4. Dans l'inspector, se connecter à `http://localhost:8000/mcp`
 
-### Option 1: One-Click Deploy
-Click the "Deploy to Render" button above.
+## 5. Connexion à Poke
 
-### Option 2: Manual Deployment
-1. Fork this repository
-2. Connect your GitHub account to Render
-3. Create a new Web Service on Render
-4. Connect your forked repository
-5. Render will automatically detect the `render.yaml` configuration
+1. Aller sur [`https://poke.com/settings/connections`](https://poke.com/settings/connections) puis “Add MCP”.
+2. Renseigner l’URL publique de votre serveur (Render, Railway, etc.) **avec le suffixe `/mcp`**.
+3. Une fois la connexion active, demandez à Poke :  
+   `Utilise l'intégration "<nom>" et la tool "get_status"`.
 
-Your server will be available at `https://your-service-name.onrender.com/mcp` (NOTE THE `/mcp`!)
+Le serveur push des messages vers Poke grâce à l’API inbound :
 
-## Poke Setup
-
-You can connect your MCP server to Poke at (poke.com/settings/connections)[poke.com/settings/connections].
-To test the connection explitly, ask poke somethink like `Tell the subagent to use the "{connection name}" integration's "{tool name}" tool`.
-If you run into persistent issues of poke not calling the right MCP (e.g. after you've renamed the connection) you may send `clearhistory` to poke to delete all message history and start fresh.
-We're working hard on improving the integration use of Poke :)
-
-
-## Customization
-
-Add more tools by decorating functions with `@mcp.tool`:
-
-```python
-@mcp.tool
-def calculate(x: float, y: float, operation: str) -> float:
-    """Perform basic arithmetic operations."""
-    if operation == "add":
-        return x + y
-    elif operation == "multiply":
-        return x * y
-    # ...
 ```
+POST https://poke.com/api/v1/inbound-sms/webhook
+Authorization: Bearer <POKE_API_KEY>
+```
+
+## 6. Outils MCP
+
+| Tool | Description |
+| --- | --- |
+| `get_status` | Donne l’état de la connexion, les derniers timestamps de sync et le QCM en attente |
+| `respond_qcm(answer)` | Valide la double authentification (answer = index ou texte), relance une sync immédiate |
+| `sync_now` | Force une synchronisation complète et retourne toutes les nouveautés détectées |
+| `list_notes(limit=5)` | Dernières notes avec matière, note, prof et dates |
+| `list_messages(limit=5)` | Résumé des derniers messages de la messagerie |
+| `list_absences()` | Absences/retards + sanctions tirés de `viescolaire.awp` |
+| `list_schedule(days=7, include_cancelled=True)` | Emploi du temps sur la période demandée |
+
+## 7. Gestion du QCM
+
+- Lors d’un nouvel appareil, ED répond `code=250`. Le serveur :
+  1. récupère la question/réponses (`/v3/connexion/doubleauth.awp`),
+  2. stocke l’état dans `state.json`,
+  3. notifie automatiquement via Poke (`type=qcm`).
+- Utiliser `respond_qcm` pour renvoyer l’index ou le texte du choix. Les identifiants `cn/cv` sont alors persistés et réutilisés automatiquement lors des futurs logins.
+
+## 8. Notifications automatiques
+
+Le `UpdatePoller` tourne en tâche de fond :
+
+- nouvelles notes (`notes.awp`),
+- nouveaux messages (messagerie v3),
+- nouvelles absences / retards (`viescolaire.awp`),
+- cours annulés (flag `isAnnule` sur l’EDT),
+- timeline globale (permet de couvrir les post-its & annonces combinées).
+
+Chaque mise à jour génère un push structuré vers Poke (type, identifiant, résumé).
+
+## 9. Déploiement
+
+- Le dépôt contient un `render.yaml` minimal pour Render.  
+- Prévoir les variables d’environnement ci-dessus + un volume persistant pour `data/state.json` si vous souhaitez conserver l’historique entre redéploiements.
+
+---
+
+Si vous avez besoin d’autres modules ED (cahier de texte, documents, etc.) ou d’intégrer d’autres transports MCP, ouvrez simplement une issue ou ajoutez vos propres tools `@mcp.tool` dans `src/server.py`.
