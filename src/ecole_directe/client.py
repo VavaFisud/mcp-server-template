@@ -36,6 +36,7 @@ class EcoleDirecteClient:
         )
         self._token: Optional[str] = state.get_token()
         self._account: Optional[Dict[str, Any]] = state.get_account_metadata()
+        self._gtk_cookie: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -119,16 +120,20 @@ class EcoleDirecteClient:
         gtk = response.cookies.get("GTK")
         if not gtk:
             raise RuntimeError("Impossible de récupérer le cookie GTK.")
+        self._gtk_cookie = gtk
         return gtk
 
     def _request_qcm(self, temp_token: str) -> Dict[str, Any]:
         if not temp_token:
             raise RuntimeError("Token temporaire manquant pour la double authentification.")
+        headers = {"X-Token": temp_token}
+        if self._gtk_cookie:
+            headers["X-Gtk"] = self._gtk_cookie
         payload = self._post(
             "/v3/connexion/doubleauth.awp",
             payload={},
-            include_token=True,
-            token_override=temp_token,
+            include_token=False,
+            headers=headers,
         )
         data = payload["data"]
         question = self._decode_b64(data["question"])
