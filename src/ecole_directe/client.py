@@ -126,14 +126,15 @@ class EcoleDirecteClient:
     def _request_qcm(self, temp_token: str) -> Dict[str, Any]:
         if not temp_token:
             raise RuntimeError("Token temporaire manquant pour la double authentification.")
-        headers = {"X-Token": temp_token}
+        headers: Dict[str, str] = {}
         if self._gtk_cookie:
             headers["X-Gtk"] = self._gtk_cookie
         payload = self._post(
             "/v3/connexion/doubleauth.awp",
             payload={},
-            include_token=False,
-            headers=headers,
+            include_token=True,
+            token_override=temp_token,
+            headers=headers if headers else None,
         )
         data = payload["data"]
         question = self._decode_b64(data["question"])
