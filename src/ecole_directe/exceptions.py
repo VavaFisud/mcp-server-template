@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class EcoleDirecteError(Exception):
     """Base exception for the custom client."""
 
@@ -27,4 +30,3 @@ class ApiRequestFailed(EcoleDirecteError):
         super().__init__(f"API error ({code}): {message}")
         self.code = code
         self.message = message
-from __future__ import annotations

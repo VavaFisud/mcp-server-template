@@ -71,7 +71,9 @@ class EcoleDirecteClient:
         extra_query: Optional[Dict[str, Any]] = None,
         token_override: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
+        allowed_codes: Optional[set[int]] = None,
     ) -> Dict[str, Any]:
+        allowed_codes = allowed_codes or set()
         url = self._build_url(path, method=method, extra_query=extra_query)
         body = {}
         if payload is not None:
@@ -88,7 +90,7 @@ class EcoleDirecteClient:
             raise SessionExpired("Token expired or invalid")
         if code == 505:
             raise AuthenticationFailed(message or "Identifiants invalides")
-        if code != 200:
+        if code not in allowed_codes and code != 200:
             raise ApiRequestFailed(message or "Erreur inconnue", code=code)
         new_token = payload.get("token")
         if new_token:
@@ -120,6 +122,8 @@ class EcoleDirecteClient:
         return gtk
 
     def _request_qcm(self, temp_token: str) -> Dict[str, Any]:
+        if not temp_token:
+            raise RuntimeError("Token temporaire manquant pour la double authentification.")
         payload = self._post(
             "/v3/connexion/doubleauth.awp",
             payload={},
@@ -206,6 +210,7 @@ class EcoleDirecteClient:
                 headers=headers,
                 extra_query={"v": self.API_VERSION},
                 method="post",
+                allowed_codes={250},
             )
         except ApiRequestFailed as exc:
             if "mot de passe" in exc.message.lower():
@@ -220,16 +225,19 @@ class EcoleDirecteClient:
                 headers=headers,
                 extra_query={"v": self.API_VERSION},
                 method="post",
+                allowed_codes={250},
             )
 
         code = response.get("code", 200)
         if code == 250:
-            token = response.get("token", "")
-            qcm_info = self._request_qcm(token)
+            temp_token = response.get("token") or self._token
+            if not temp_token:
+                raise RuntimeError("Token de double authentification non disponible.")
+            qcm_info = self._request_qcm(temp_token)
             raise QCMRequired(
                 qcm_info["question"],
                 [choice["decoded"] for choice in qcm_info["choices"]],
-                token,
+                temp_token,
             )
 
         account = response["data"]["accounts"][self.settings.account_index]
